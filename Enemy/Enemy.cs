@@ -75,6 +75,7 @@ public class Detection
     [SerializeField]
     private float attackRadius = 2.5f;
     private bool isAttacking = false;
+    private bool isTeleporting = false;
 
     public Transform PointA => pointA;
     public Transform PointB => pointB;
@@ -99,6 +100,13 @@ public class Detection
         get => isAttacking;
         set => isAttacking = value;
     }
+
+    public bool IsTeleporting
+    {
+        get => isTeleporting;
+        set => isTeleporting = value;
+    }
+
 }
 
 public class Enemy : MonoBehaviour
@@ -193,7 +201,6 @@ public class Enemy : MonoBehaviour
 
     void MoveTowardsPlayer()
     {
-        //Vector2 direction = (detection.Player.position - transform.position).normalized;
         Vector2 direction = new Vector2(detection.Player.position.x - transform.position.x, 0f).normalized;
         basicInfo.MoveDirection = direction;
         basicInfo.IsTracing = true;
@@ -207,8 +214,53 @@ public class Enemy : MonoBehaviour
         detection.IsAttacking = true;
         basicComponents.Animator.SetBool("isAttacking", detection.IsAttacking);
         basicInfo.IsTracing = false;
+        basicInfo.IsMoving = false;
         
-        Debug.Log("isAttacking : " + detection.IsAttacking);
+        // 추가된코드
+        Vector2 attackPoint = new Vector2(detection.Player.position.x, transform.position.y);
+        Vector2 returnPoint = transform.position;
+        if (!detection.IsTeleporting)
+            StartCoroutine(TeleportAndShake(attackPoint, returnPoint));
+        //
+    }
+
+    private IEnumerator TeleportAndShake(Vector2 targetPos, Vector2 returnPos)
+    {
+        detection.IsTeleporting = true;
+        yield return new WaitForSeconds(0.5f);
+        transform.position = targetPos;
+        StartCoroutine(CameraShake(0.3f, 0.1f));
+        yield return new WaitForSeconds(1f);      
+
+        transform.position = returnPos;
+        detection.IsAttacking = false;
+        basicComponents.Animator.SetBool("isAttacking", detection.IsAttacking);
+        basicInfo.IsMoving = true;
+        basicComponents.Animator.SetBool("isMoving", basicInfo.IsMoving);
+         
+        yield return new WaitForSeconds(2.3f);
+        detection.IsTeleporting = false;
+    }
+
+    private IEnumerator CameraShake(float duration, float magnitude)
+    {
+        Camera cam = Camera.main;
+        if (cam == null) yield break;
+
+        Vector3 OriginPos = cam.transform.position;
+        float elapsed = 0f;
+
+        while(elapsed < duration)
+        {
+            float x = Random.Range(-1f, 1f) * magnitude;
+            float y = Random.Range(-1f, 1f) * magnitude;
+
+            cam.transform.position = new Vector3(OriginPos.x + x, OriginPos.y + y, OriginPos.z);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        cam.transform.position = OriginPos;
     }
 
     private void OnDrawGizmosSelected()
